@@ -1,12 +1,20 @@
 {
-  "name": "cardano-coin-selection",
-  "version": "1.1.5",
+  "name": "@onekeyfe/cardano-coin-selection",
+  "version": "1.0.0",
   "description": "",
   "keywords": [
     "coin selection"
   ],
   "license": "MIT",
-  "author": "lixiao.dev@gmail.com",
+  "author": "OneKeyHQ",
+  "homepage": "https://github.com/OneKeyHQ/coin-selection",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OneKeyHQ/coin-selection.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "lib/cjs/index.js",
   "module": "lib/esm/index.js",
   "files": [
