@@ -6,7 +6,15 @@
     "coin selection"
   ],
   "license": "MIT",
-  "author": "lixiao.dev@gmail.com",
+  "author": "OneKeyHQ",
+  "homepage": "https://github.com/OneKeyHQ/coin-selection",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OneKeyHQ/coin-selection.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "lib/cjs/index.js",
   "module": "lib/esm/index.js",
   "files": [
