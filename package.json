@@ -17,6 +17,9 @@
   },
   "main": "lib/cjs/index.js",
   "module": "lib/esm/index.js",
+  "browser": {
+    "@emurgo/cardano-serialization-lib-nodejs": "@emurgo/cardano-serialization-lib-browser"
+  },
   "files": [
     "lib/**/*.js",
     "lib/**/*.ts"
