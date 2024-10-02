@@ -52,10 +52,10 @@
   },
   "dependencies": {
     "@emurgo/cardano-message-signing-asmjs": "^1.0.1",
-    "@emurgo/cardano-serialization-lib-asmjs": "11.1.0"
+    "@emurgo/cardano-serialization-lib-asmjs": "12.1.0"
   },
   "peerDependencies": {
     "bignumber.js": "^9.0.1"
   },
-  "packageManager": "yarn@3.2.2"
+  "packageManager": "yarn@4.5.0"
 }
