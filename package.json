@@ -1,6 +1,6 @@
 {
   "name": "@onekeyfe/cardano-coin-selection-asmjs",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "",
   "keywords": [
     "coin selection"
@@ -32,7 +32,7 @@
     "test:badges": "make-coverage-badge --output-path ./docs/badge-coverage.svg"
   },
   "devDependencies": {
-    "@emurgo/cardano-serialization-lib-nodejs": "11.0.0",
+    "@emurgo/cardano-serialization-lib-nodejs": "11.5.0",
     "@swc-node/jest": "^1.5.2",
     "@types/jest": "^28.1.6",
     "@types/node": "^16.3.2",
@@ -52,7 +52,7 @@
   },
   "dependencies": {
     "@emurgo/cardano-message-signing-asmjs": "^1.0.1",
-    "@emurgo/cardano-serialization-lib-asmjs": "11.1.0"
+    "@emurgo/cardano-serialization-lib-asmjs": "11.5.0"
   },
   "peerDependencies": {
     "bignumber.js": "^9.0.1"

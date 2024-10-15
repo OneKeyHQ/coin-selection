@@ -756,17 +756,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@emurgo/cardano-serialization-lib-asmjs@npm:11.1.0":
-  version: 11.1.0
-  resolution: "@emurgo/cardano-serialization-lib-asmjs@npm:11.1.0"
-  checksum: 17f1646b3d70c36670c9adefbc007d9fd9ff1bbfdf1ca7bd971534c46d7d5fc075c423cb89a0dc10b07d8acd97a60a351c8ad7b7e54f8a135fdb0c8860ccf787
+"@emurgo/cardano-serialization-lib-asmjs@npm:11.5.0":
+  version: 11.5.0
+  resolution: "@emurgo/cardano-serialization-lib-asmjs@npm:11.5.0"
+  checksum: 5c915352718aa28ade92b5c2f9a0367e706312b989170fcc5b057c15e9b30783a8f77db343ef839478ec1250268fd6c03c59661cec2d548b1bff7dd7981c730f
   languageName: node
   linkType: hard
 
-"@emurgo/cardano-serialization-lib-nodejs@npm:11.0.0":
-  version: 11.0.0
-  resolution: "@emurgo/cardano-serialization-lib-nodejs@npm:11.0.0"
-  checksum: b22b707e83ecd254a9888e24ada14d07fa8d37c749bd49e67b4b9ca13a3a42cc1b5198b1118d751cee94b479d5b7addd15af5d875cb5c91418f69f3a98d5276e
+"@emurgo/cardano-serialization-lib-nodejs@npm:11.5.0":
+  version: 11.5.0
+  resolution: "@emurgo/cardano-serialization-lib-nodejs@npm:11.5.0"
+  checksum: f9e271704ef12eb018bc0a15b8c6f83c61db694a422674267be6c546a9a89dd8b200781aca3f97dd5bb4291b0c84f6c60177fcf7e550964188a4ed6a8efd0316
   languageName: node
   linkType: hard
 
@@ -1296,8 +1296,8 @@ __metadata:
   resolution: "@onekeyfe/cardano-coin-selection-asmjs@workspace:."
   dependencies:
     "@emurgo/cardano-message-signing-asmjs": ^1.0.1
-    "@emurgo/cardano-serialization-lib-asmjs": 11.1.0
-    "@emurgo/cardano-serialization-lib-nodejs": 11.0.0
+    "@emurgo/cardano-serialization-lib-asmjs": 11.5.0
+    "@emurgo/cardano-serialization-lib-nodejs": 11.5.0
     "@swc-node/jest": ^1.5.2
     "@types/jest": ^28.1.6
     "@types/node": ^16.3.2
