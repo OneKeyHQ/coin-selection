@@ -134,18 +134,19 @@ const outputsToOneKey = (outputs: any, changeAddress: IChangeAddress) => {
         : {
             address: outputAddressHuman,
           };
-    const datumHash =
-      (!output.has_plutus_data() ||
-        (output.has_plutus_data() && output.plutus_data()?.kind() === 0)) &&
-      output.has_data_hash()
-        ? output.data_hash().to_hex()
-        : null;
-    const inlineDatum =
-      output.has_data_hash() &&
-      output.has_plutus_data() &&
-      output.plutus_data()?.kind() === 1
-        ? output.data_hash().to_hex()
-        : null;
+    // https://github.com/dcSpark/cardano-multiplatform-lib/blob/c6a6d110065e98ed50640c7380d12748856608cf/chain/rust/src/transaction/mod.rs#L87
+    // https://github.com/dcSpark/cardano-multiplatform-lib/blob/c6a6d110065e98ed50640c7380d12748856608cf/chain/rust/src/transaction/mod.rs#L117-L136
+    // data_hash    : kind = 0
+    // plutus_data  : kind = 1
+
+    const datumHash = output.has_data_hash()
+      ? output.data_hash().to_hex()
+      : null;
+
+    const inlineDatum = output.has_plutus_data()
+      ? output.plutus_data().to_hex()
+      : null;
+
     // const datumHash =
     //   output.datum() && output.datum().kind() === 0
     //     ? Buffer.from(output.datum().as_data_hash().to_bytes()).toString('hex')
@@ -161,7 +162,10 @@ const outputsToOneKey = (outputs: any, changeAddress: IChangeAddress) => {
       amount: output.amount().coin().to_str(),
       tokenBundle,
       datumHash,
-      format: inlineDatum || referenceScript ? 1 : 0,
+      // https://github.com/input-output-hk/nami/commit/a5f5a9357da81307bff9bc77ef2476f1746c134a#diff-1c7110974e24c349d96acac1989fe76c94b0031ab0f5a114e10823e5d74549deR421-R423
+      format: Buffer.from(output.to_bytes()).toString('hex').startsWith('a')
+        ? 1
+        : 0,
       inlineDatum,
       referenceScript,
       ...destination,
@@ -436,6 +440,11 @@ export const txToOneKey = async (
       if (signer === keys.payment.hash) {
         requiredSigners.push({
           keyPath: keys.payment.path,
+        });
+      } else if (signer === keys.stake.hash) {
+        // https://github.com/input-output-hk/nami/commit/a5f5a9357da81307bff9bc77ef2476f1746c134a#diff-1c7110974e24c349d96acac1989fe76c94b0031ab0f5a114e10823e5d74549deR421-R423
+        requiredSigners.push({
+          keyPath: keys.stake.path,
         });
       } else {
         requiredSigners.push({
