@@ -62,7 +62,11 @@ export const signTransaction = async (
   const signedTx = Buffer.from(transaction.to_bytes() as any, 'hex').toString(
     'hex',
   );
-  const hash = CardanoWasm.hash_transaction(transaction.body()).to_hex();
+  const hash = CardanoWasm.FixedTransaction.new_from_body_bytes(
+    transaction.body().to_bytes(),
+  )
+    .transaction_hash()
+    .to_hex();
   return {
     signedTx,
     txid: hash,
@@ -97,7 +101,9 @@ export const signTx = async (
 
   const txWitnessSet = CardanoWasm.TransactionWitnessSet.new();
   const vkeyWitnesses = CardanoWasm.Vkeywitnesses.new();
-  const txHash = CardanoWasm.hash_transaction(rawTx.body());
+  const txHash = CardanoWasm.FixedTransaction.new_from_body_bytes(
+    rawTx.body().to_bytes(),
+  ).transaction_hash();
   keyHashes.forEach(keyHash => {
     let signingKey;
     if (keyHash === paymentKeyHash) signingKey = paymentKey;

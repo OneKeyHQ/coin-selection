@@ -200,10 +200,9 @@ const convertCborTxToEncodeTx = async (
     },
     tx: {
       body: body.to_hex(),
-      hash: Buffer.from(
-        CardanoWasm.hash_transaction(body).to_bytes() as any,
-        'utf8',
-      ).toString('hex'),
+      hash: CardanoWasm.FixedTransaction.new_from_body_bytes(body.to_bytes())
+        .transaction_hash()
+        .to_hex(),
       size: 0,
       rawTxHex: txHex,
     },
