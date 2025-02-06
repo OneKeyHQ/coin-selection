@@ -492,6 +492,18 @@ export const txToOneKey = async (
 
   const includeNetworkId = !!tx.body().network_id();
 
+  let tagCborSets = false;
+  try {
+    const tagCBOR = CardanoWasm.has_transaction_set_tag(
+      tx.to_bytes(),
+    ).valueOf();
+    tagCborSets =
+      tagCBOR === CardanoWasm.TransactionSetsState.AllSetsHaveTag.valueOf() ||
+      tagCBOR === CardanoWasm.TransactionSetsState.MixedSets.valueOf();
+  } catch (error) {
+    // ignore
+  }
+
   const onekeyTx = {
     signingMode,
     outputs: onekeyOutputs,
@@ -512,6 +524,7 @@ export const txToOneKey = async (
     collateralReturn,
     totalCollateral,
     referenceInputs,
+    tagCborSets,
   };
   Object.keys(onekeyTx).forEach(
     key => !onekeyTx[key] && onekeyTx[key] != 0 && delete onekeyTx[key],
