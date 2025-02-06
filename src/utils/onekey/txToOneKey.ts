@@ -59,12 +59,27 @@ const generateKeys = (keys: Keys, xpub: string) => {
   };
 };
 
-const outputsToOneKey = (outputs: any, changeAddress: IChangeAddress) => {
+const sortCanonicallyInPlace = (items, selector) => {
+  return items.sort((a, b) => {
+    const itemA = selector(a);
+    const itemB = selector(b);
+    if (itemA.length === itemB.length) {
+      return itemA > itemB ? 1 : -1;
+    } else if (itemA.length > itemB.length) return 1;
+    else return -1;
+  });
+};
+
+const outputsToOneKey = (
+  outputs: CardanoWasm.TransactionOutputs,
+  changeAddress: IChangeAddress,
+) => {
   const onekeyOutputs = [];
   for (let i = 0; i < outputs.len(); i++) {
     const output = outputs.get(i);
     const multiAsset = output.amount().multiasset();
     let tokenBundle = null;
+
     if (multiAsset) {
       tokenBundle = [];
       for (let j = 0; j < multiAsset.keys().len(); j++) {
@@ -80,19 +95,17 @@ const outputsToOneKey = (outputs: any, changeAddress: IChangeAddress) => {
           });
         }
         // sort canonical
-        tokens.sort((a, b) => {
-          if (a.assetNameBytes.length == b.assetNameBytes.length) {
-            return a.assetNameBytes > b.assetNameBytes ? 1 : -1;
-          } else if (a.assetNameBytes.length > b.assetNameBytes.length)
-            return 1;
-          else return -1;
-        });
+        sortCanonicallyInPlace(tokens, item => item.assetNameBytes);
+
         tokenBundle.push({
           policyId: Buffer.from(policy.to_bytes()).toString('hex'),
           tokenAmounts: tokens,
         });
       }
+
+      sortCanonicallyInPlace(tokenBundle, item => item.policyId);
     }
+
     const outputAddressBech32 = output.address().to_bech32();
 
     const outputAddressHuman = (() => {
@@ -384,12 +397,7 @@ export const txToOneKey = async (
         });
       }
       // sort canonical
-      tokens.sort((a, b) => {
-        if (a.assetNameBytes.length == b.assetNameBytes.length) {
-          return a.assetNameBytes > b.assetNameBytes ? 1 : -1;
-        } else if (a.assetNameBytes.length > b.assetNameBytes.length) return 1;
-        else return -1;
-      });
+      sortCanonicallyInPlace(tokens, item => item.assetNameBytes);
       mintBundle.push({
         policyId: Buffer.from(policy.to_bytes()).toString('hex'),
         tokenAmounts: tokens,
