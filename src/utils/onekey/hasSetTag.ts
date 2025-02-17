@@ -19,5 +19,5 @@ export const hasSetTagWithBody = (txBodyHex: string) => {
     // ignore
   }
 
-  return tagCborSets;
+  return Promise.resolve(tagCborSets);
 };
