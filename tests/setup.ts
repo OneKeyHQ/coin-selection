@@ -3,7 +3,7 @@ jest.setTimeout(30000);
 import {
   BigNum,
   TransactionBody,
-} from '@emurgo/cardano-serialization-lib-browser';
+} from '@emurgo/cardano-serialization-lib-asmjs';
 import { CoinSelectionResult } from '../src/types/types';
 import { multiAssetToArray } from '../src/utils/common';
 
@@ -13,7 +13,7 @@ export const sanityCheck = (res: CoinSelectionResult): void => {
       (acc, input) =>
         acc.checked_add(
           BigNum.from_str(
-            input.amount.find(a => a.unit === 'lovelace').quantity || '0',
+            input.amount.find(a => a.unit === 'lovelace')?.quantity || '0',
           ),
         ),
       BigNum.from_str('0'),

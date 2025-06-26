@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import * as CardanoWasm from '@emurgo/cardano-serialization-lib-browser';
-import * as CardanoMessage from '@emurgo/cardano-message-signing-browser/cardano_message_signing';
+import * as CardanoWasm from '@emurgo/cardano-serialization-lib-asmjs';
+import * as CardanoMessage from '@emurgo/cardano-message-signing-asmjs/cardano_message_signing';
 import BigNumber from 'bignumber.js';
 import { getUtxos as getRawUtxos, requestAccountKey } from './signTx';
 import { DataSignError } from './error';
@@ -200,10 +200,9 @@ const convertCborTxToEncodeTx = async (
     },
     tx: {
       body: body.to_hex(),
-      hash: Buffer.from(
-        CardanoWasm.hash_transaction(body).to_bytes() as any,
-        'utf8',
-      ).toString('hex'),
+      hash: CardanoWasm.FixedTransaction.new_from_body_bytes(body.to_bytes())
+        .transaction_hash()
+        .to_hex(),
       size: 0,
       rawTxHex: txHex,
     },

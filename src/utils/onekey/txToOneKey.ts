@@ -1,5 +1,5 @@
 // @ts-nocheck
-import * as CardanoWasm from '@emurgo/cardano-serialization-lib-browser';
+import * as CardanoWasm from '@emurgo/cardano-serialization-lib-asmjs';
 import type { IChangeAddress } from './types';
 
 export enum CardanoAddressType {
@@ -59,12 +59,27 @@ const generateKeys = (keys: Keys, xpub: string) => {
   };
 };
 
-const outputsToOneKey = (outputs: any, changeAddress: IChangeAddress) => {
+const sortCanonicallyInPlace = (items, selector) => {
+  return items.sort((a, b) => {
+    const itemA = selector(a);
+    const itemB = selector(b);
+    if (itemA.length === itemB.length) {
+      return itemA > itemB ? 1 : -1;
+    } else if (itemA.length > itemB.length) return 1;
+    else return -1;
+  });
+};
+
+const outputsToOneKey = (
+  outputs: CardanoWasm.TransactionOutputs,
+  changeAddress: IChangeAddress,
+) => {
   const onekeyOutputs = [];
   for (let i = 0; i < outputs.len(); i++) {
     const output = outputs.get(i);
     const multiAsset = output.amount().multiasset();
     let tokenBundle = null;
+
     if (multiAsset) {
       tokenBundle = [];
       for (let j = 0; j < multiAsset.keys().len(); j++) {
@@ -80,19 +95,17 @@ const outputsToOneKey = (outputs: any, changeAddress: IChangeAddress) => {
           });
         }
         // sort canonical
-        tokens.sort((a, b) => {
-          if (a.assetNameBytes.length == b.assetNameBytes.length) {
-            return a.assetNameBytes > b.assetNameBytes ? 1 : -1;
-          } else if (a.assetNameBytes.length > b.assetNameBytes.length)
-            return 1;
-          else return -1;
-        });
+        sortCanonicallyInPlace(tokens, item => item.assetNameBytes);
+
         tokenBundle.push({
           policyId: Buffer.from(policy.to_bytes()).toString('hex'),
           tokenAmounts: tokens,
         });
       }
+
+      sortCanonicallyInPlace(tokenBundle, item => item.policyId);
     }
+
     const outputAddressBech32 = output.address().to_bech32();
 
     const outputAddressHuman = (() => {
@@ -134,18 +147,19 @@ const outputsToOneKey = (outputs: any, changeAddress: IChangeAddress) => {
         : {
             address: outputAddressHuman,
           };
-    const datumHash =
-      (!output.has_plutus_data() ||
-        (output.has_plutus_data() && output.plutus_data()?.kind() === 0)) &&
-      output.has_data_hash()
-        ? output.data_hash().to_hex()
-        : null;
-    const inlineDatum =
-      output.has_data_hash() &&
-      output.has_plutus_data() &&
-      output.plutus_data()?.kind() === 1
-        ? output.data_hash().to_hex()
-        : null;
+    // https://github.com/dcSpark/cardano-multiplatform-lib/blob/c6a6d110065e98ed50640c7380d12748856608cf/chain/rust/src/transaction/mod.rs#L87
+    // https://github.com/dcSpark/cardano-multiplatform-lib/blob/c6a6d110065e98ed50640c7380d12748856608cf/chain/rust/src/transaction/mod.rs#L117-L136
+    // data_hash    : kind = 0
+    // plutus_data  : kind = 1
+
+    const datumHash = output.has_data_hash()
+      ? output.data_hash().to_hex()
+      : null;
+
+    const inlineDatum = output.has_plutus_data()
+      ? output.plutus_data().to_hex()
+      : null;
+
     // const datumHash =
     //   output.datum() && output.datum().kind() === 0
     //     ? Buffer.from(output.datum().as_data_hash().to_bytes()).toString('hex')
@@ -161,7 +175,10 @@ const outputsToOneKey = (outputs: any, changeAddress: IChangeAddress) => {
       amount: output.amount().coin().to_str(),
       tokenBundle,
       datumHash,
-      format: inlineDatum || referenceScript ? 1 : 0,
+      // https://github.com/input-output-hk/nami/commit/a5f5a9357da81307bff9bc77ef2476f1746c134a#diff-1c7110974e24c349d96acac1989fe76c94b0031ab0f5a114e10823e5d74549deR421-R423
+      format: Buffer.from(output.to_bytes()).toString('hex').startsWith('a')
+        ? 1
+        : 0,
       inlineDatum,
       referenceScript,
       ...destination,
@@ -380,12 +397,7 @@ export const txToOneKey = async (
         });
       }
       // sort canonical
-      tokens.sort((a, b) => {
-        if (a.assetNameBytes.length == b.assetNameBytes.length) {
-          return a.assetNameBytes > b.assetNameBytes ? 1 : -1;
-        } else if (a.assetNameBytes.length > b.assetNameBytes.length) return 1;
-        else return -1;
-      });
+      sortCanonicallyInPlace(tokens, item => item.assetNameBytes);
       mintBundle.push({
         policyId: Buffer.from(policy.to_bytes()).toString('hex'),
         tokenAmounts: tokens,
@@ -437,6 +449,11 @@ export const txToOneKey = async (
         requiredSigners.push({
           keyPath: keys.payment.path,
         });
+      } else if (signer === keys.stake.hash) {
+        // https://github.com/input-output-hk/nami/commit/a5f5a9357da81307bff9bc77ef2476f1746c134a#diff-1c7110974e24c349d96acac1989fe76c94b0031ab0f5a114e10823e5d74549deR421-R423
+        requiredSigners.push({
+          keyPath: keys.stake.path,
+        });
       } else {
         requiredSigners.push({
           keyHash: signer,
@@ -475,6 +492,18 @@ export const txToOneKey = async (
 
   const includeNetworkId = !!tx.body().network_id();
 
+  let tagCborSets = false;
+  try {
+    const tagCBOR = CardanoWasm.has_transaction_set_tag(
+      tx.to_bytes(),
+    ).valueOf();
+    tagCborSets =
+      tagCBOR === CardanoWasm.TransactionSetsState.AllSetsHaveTag.valueOf() ||
+      tagCBOR === CardanoWasm.TransactionSetsState.MixedSets.valueOf();
+  } catch (error) {
+    // ignore
+  }
+
   const onekeyTx = {
     signingMode,
     outputs: onekeyOutputs,
@@ -495,6 +524,7 @@ export const txToOneKey = async (
     collateralReturn,
     totalCollateral,
     referenceInputs,
+    tagCborSets,
   };
   Object.keys(onekeyTx).forEach(
     key => !onekeyTx[key] && onekeyTx[key] != 0 && delete onekeyTx[key],
