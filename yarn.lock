@@ -749,10 +749,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@emurgo/cardano-message-signing-browser@npm:^1.0.1":
-  version: 1.0.1
-  resolution: "@emurgo/cardano-message-signing-browser@npm:1.0.1"
-  checksum: 4c92e671dfdbce2e677d04f159f4cc920e44509cfa5feb4d362824822e72a90f0344aab28103f00594602c21830d88e4c400f64244f36d048cb3b1c4823c5ac0
+"@emurgo/cardano-message-signing-browser@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "@emurgo/cardano-message-signing-browser@npm:1.1.0"
+  checksum: 5c1ecb18a378ffc539fe04d9211dc10b1d577cf0691ad1c7365d683966f21602b8fa83f3e0b2ad6bfd3109ad7e9ed110c517216391409ab2f3518a39d3fd8ae2
   languageName: node
   linkType: hard
 
@@ -1295,7 +1295,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyfe/cardano-coin-selection@workspace:."
   dependencies:
-    "@emurgo/cardano-message-signing-browser": ^1.0.1
+    "@emurgo/cardano-message-signing-browser": ^1.1.0
     "@emurgo/cardano-serialization-lib-browser": 11.1.0
     "@emurgo/cardano-serialization-lib-nodejs": 11.0.0
     "@swc-node/jest": ^1.5.2
@@ -5873,7 +5873,7 @@ fsevents@^2.3.2:
 
 "typescript@patch:typescript@^4.7.4#~builtin<compat/typescript>":
   version: 4.7.4
-  resolution: "typescript@patch:typescript@npm%3A4.7.4#~builtin<compat/typescript>::version=4.7.4&hash=f456af"
+  resolution: "typescript@patch:typescript@npm%3A4.7.4#~builtin<compat/typescript>::version=4.7.4&hash=701156"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
