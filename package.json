@@ -52,7 +52,7 @@
   },
   "dependencies": {
     "@emurgo/cardano-message-signing-browser": "^1.0.1",
-    "@emurgo/cardano-serialization-lib-browser": "11.1.0"
+    "@emurgo/cardano-serialization-lib-browser": "11.5.0"
   },
   "peerDependencies": {
     "bignumber.js": "^9.0.1"
