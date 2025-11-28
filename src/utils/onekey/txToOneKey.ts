@@ -194,7 +194,7 @@ const outputsToOneKey = (
 
 /**
  *
- * @param {Transaction} tx
+ * @param {Transaction | TransactionBody} rawTx - can be full Transaction or just TransactionBody hex
  */
 export const txToOneKey = async (
   rawTx: string,
@@ -204,7 +204,20 @@ export const txToOneKey = async (
   changeAddress: IChangeAddress,
 ) => {
   const keys = generateKeys(initKeys, xpub);
-  const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(rawTx, 'hex'));
+
+  // Try to parse as full Transaction first, fallback to TransactionBody
+  let tx: CardanoWasm.Transaction;
+  try {
+    tx = CardanoWasm.Transaction.from_bytes(Buffer.from(rawTx, 'hex'));
+  } catch {
+    // Input is TransactionBody only, wrap it with empty witness set
+    const body = CardanoWasm.TransactionBody.from_bytes(
+      Buffer.from(rawTx, 'hex'),
+    );
+    const emptyWitnessSet = CardanoWasm.TransactionWitnessSet.new();
+    tx = CardanoWasm.Transaction.new(body, emptyWitnessSet);
+    console.log('[txToOneKey] Input is TransactionBody, wrapped with empty witness set');
+  }
 
   let signingMode = CardanoTxSigningMode.ORDINARY_TRANSACTION;
 
@@ -540,6 +553,7 @@ export const txToOneKey = async (
     key => !onekeyTx[key] && onekeyTx[key] != 0 && delete onekeyTx[key],
   );
   console.log('format onekey cardano hardware Tx =====>>> : ', onekeyTx);
+  console.log('[txToOneKey] certificates detail:', JSON.stringify(onekeyCertificates, null, 2));
   return Promise.resolve(onekeyTx);
 };
 

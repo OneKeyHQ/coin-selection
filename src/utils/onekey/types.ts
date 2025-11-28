@@ -51,6 +51,9 @@ type ITxInfo = {
   hash: string;
   size: number;
   rawTxHex?: string;
+  // Original body hex from external provider (e.g., stakefish)
+  // Use this for signing to preserve CBOR encoding
+  originalBodyHex?: string;
 };
 
 export type IEncodedTxADA = {

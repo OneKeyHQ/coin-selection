@@ -106,20 +106,29 @@ const convertCborTxToEncodeTx = async (
 ): Promise<IEncodedTxADA> => {
   let body: CardanoWasm.TransactionBody;
   let rawTxHex: string;
+  let originalBodyHex: string | undefined;
 
+  let isBodyOnly = false;
   console.log('CARDANO LOCAL_VERSION : 1');
   try {
     const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(txHex, 'hex'));
     body = tx.body();
     rawTxHex = txHex;
+    // No originalBodyHex needed for full Transaction
   } catch {
     // Input is TransactionBody only (e.g., from staking providers like stakefish)
-    // Build a complete Transaction with empty witness set
-    body = CardanoWasm.TransactionBody.from_bytes(Buffer.from(txHex, 'hex'));
+    // IMPORTANT: Preserve the original body hex for signing to maintain CBOR encoding
+    isBodyOnly = true;
+    originalBodyHex = txHex; // Save original body hex
+    body = CardanoWasm.TransactionBody.from_bytes(
+      Buffer.from(txHex, 'hex') as unknown as Uint8Array,
+    );
+    // For rawTxHex, we need to build a Transaction for compatibility
     const emptyWitnessSet = CardanoWasm.TransactionWitnessSet.new();
     const tx = CardanoWasm.Transaction.new(body, emptyWitnessSet);
     rawTxHex = Buffer.from(tx.to_bytes() as any, 'hex').toString('hex');
   }
+  console.log('[convertCborTxToEncodeTx] isBodyOnly:', isBodyOnly, 'originalBodyHex:', !!originalBodyHex);
 
   // Fee
   const fee = body.fee().to_str();
@@ -309,6 +318,9 @@ const convertCborTxToEncodeTx = async (
         .to_hex(),
       size: 0,
       rawTxHex,
+      // Original body hex from external provider, use this for signing
+      // to preserve CBOR encoding (important for Conway era transactions)
+      originalBodyHex,
     },
     signOnly: true,
     staking: stakingInfo,
