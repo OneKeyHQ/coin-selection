@@ -28,6 +28,14 @@ export enum CardanoCertificateType {
   STAKE_DEREGISTRATION = 1,
   STAKE_DELEGATION = 2,
   STAKE_POOL_REGISTRATION = 3,
+  // Conway era
+  STAKE_REGISTRATION_CONWAY = 7,
+  STAKE_DEREGISTRATION_CONWAY = 8,
+  VOTE_DELEGATION = 9,
+  STAKE_AND_VOTE_DELEGATION = 10,
+  STAKE_REGISTRATION_AND_DELEGATION = 11,
+  VOTE_REGISTRATION_AND_DELEGATION = 12,
+  STAKE_VOTE_REGISTRATION_AND_DELEGATION = 13,
 }
 
 export enum CardanoPoolRelayType {
@@ -344,10 +352,55 @@ export const txToOneKey = async (
           relays: onekeyRelays,
           metadata,
         };
+      } else if (certKind === 9 || certKind === 15) {
+        // Conway era: Vote Delegation (kind 9 in CDDL, may appear as 15 in some lib versions)
+        // For hardware wallet signing, we need the stake key path
+        const voteDelegation = cert.as_vote_delegation?.();
+        if (voteDelegation) {
+          const credential = voteDelegation.stake_credential();
+          certificate.type = CardanoCertificateType.VOTE_DELEGATION;
+          if (credential.kind() === 0) {
+            certificate.path = keys.stake.path;
+          } else {
+            const scriptHash = Buffer.from(
+              credential.to_scripthash().to_bytes(),
+            ).toString('hex');
+            certificate.scriptHash = scriptHash;
+          }
+          // drep can be key hash, script hash, or abstain/no_confidence
+          const drep = voteDelegation.drep();
+          if (drep.to_key_hash?.()) {
+            certificate.dRep = {
+              type: 0, // key hash
+              keyHash: Buffer.from(drep.to_key_hash().to_bytes()).toString(
+                'hex',
+              ),
+            };
+          } else if (drep.to_script_hash?.()) {
+            certificate.dRep = {
+              type: 1, // script hash
+              scriptHash: Buffer.from(drep.to_script_hash().to_bytes()).toString(
+                'hex',
+              ),
+            };
+          } else {
+            // abstain or no_confidence
+            certificate.dRep = {
+              type: drep.kind(), // 2 = abstain, 3 = no_confidence
+            };
+          }
+        } else {
+          // Fallback: just include stake path for signing
+          console.log(
+            `[txToOneKey] Vote delegation cert kind ${certKind}, using stake path for signing`,
+          );
+          certificate.type = CardanoCertificateType.VOTE_DELEGATION;
+          certificate.path = keys.stake.path;
+        }
       } else {
-        // Skip unsupported certificate types (kind 4, 5, 6, etc.)
+        // Skip unsupported certificate types
         // Don't push empty certificate objects
-        console.warn(
+        console.log(
           `[txToOneKey] Unsupported certificate kind: ${certKind}, cert:`,
           cert.to_hex(),
         );
