@@ -99,8 +99,14 @@ const convertCborTxToEncodeTx = async (
   addresses: string[],
   changeAddress: IChangeAddress,
 ): Promise<IEncodedTxADA> => {
-  const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(txHex, 'hex'));
-  const body = tx.body();
+  let body: CardanoWasm.TransactionBody;
+
+  try {
+    const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(txHex, 'hex'));
+    body = tx.body();
+  } catch {
+    body = CardanoWasm.TransactionBody.from_bytes(Buffer.from(txHex, 'hex'));
+  }
 
   // Fee
   const fee = body.fee().to_str();
