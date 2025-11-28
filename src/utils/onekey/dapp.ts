@@ -4,6 +4,8 @@ import * as CardanoMessage from '@emurgo/cardano-message-signing-asmjs/cardano_m
 import BigNumber from 'bignumber.js';
 import { getUtxos as getRawUtxos, requestAccountKey } from './signTx';
 import { DataSignError } from './error';
+import { CoinSelectionError } from '../errors';
+import { ERROR } from '../../constants';
 import {
   IAdaAmount,
   IAdaUTXO,
@@ -207,6 +209,12 @@ const convertCborTxToEncodeTx = async (
   // outputs txs
   const outputs: IEncodeOutput[] = [];
   const outputsLen = body.outputs().len();
+
+  // All valid transactions must have at least one output
+  // Empty outputs means insufficient funds to cover the transaction
+  if (outputsLen === 0) {
+    throw new CoinSelectionError(ERROR.UTXO_BALANCE_INSUFFICIENT);
+  }
   for (let i = 0; i < outputsLen; i++) {
     const output = body.outputs().get(i);
     const address = output.address().to_bech32();
@@ -256,10 +264,7 @@ const convertCborTxToEncodeTx = async (
     });
   }
 
-  const totalSpent =
-    outputs.length > 0
-      ? BigNumber.sum(...outputs.map(o => o.amount)).toFixed()
-      : '0';
+  const totalSpent = BigNumber.sum(...outputs.map(o => o.amount)).toFixed();
 
   const token = outputs
     .filter(o => !addresses.includes(o.address))
