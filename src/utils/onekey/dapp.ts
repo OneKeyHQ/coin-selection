@@ -105,13 +105,20 @@ const convertCborTxToEncodeTx = async (
   changeAddress: IChangeAddress,
 ): Promise<IEncodedTxADA> => {
   let body: CardanoWasm.TransactionBody;
+  let rawTxHex: string;
 
   console.log('CARDANO LOCAL_VERSION : 1');
   try {
     const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(txHex, 'hex'));
     body = tx.body();
+    rawTxHex = txHex;
   } catch {
+    // Input is TransactionBody only (e.g., from staking providers like stakefish)
+    // Build a complete Transaction with empty witness set
     body = CardanoWasm.TransactionBody.from_bytes(Buffer.from(txHex, 'hex'));
+    const emptyWitnessSet = CardanoWasm.TransactionWitnessSet.new();
+    const tx = CardanoWasm.Transaction.new(body, emptyWitnessSet);
+    rawTxHex = Buffer.from(tx.to_bytes() as any, 'hex').toString('hex');
   }
 
   // Fee
@@ -301,7 +308,7 @@ const convertCborTxToEncodeTx = async (
         .transaction_hash()
         .to_hex(),
       size: 0,
-      rawTxHex: txHex,
+      rawTxHex,
     },
     signOnly: true,
     staking: stakingInfo,
