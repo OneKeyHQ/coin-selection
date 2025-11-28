@@ -218,7 +218,9 @@ export const txToOneKey = async (
     for (let i = 0; i < certificates.len(); i++) {
       const cert = certificates.get(i);
       const certificate: any = {};
-      if (cert.kind() === 0) {
+      const certKind = cert.kind();
+
+      if (certKind === 0) {
         const credential = cert.as_stake_registration()?.stake_credential();
         certificate.type = CardanoCertificateType.STAKE_REGISTRATION;
         if (credential?.kind() === 0) {
@@ -229,7 +231,7 @@ export const txToOneKey = async (
           ).toString('hex');
           certificate.scriptHash = scriptHash;
         }
-      } else if (cert.kind() === 1) {
+      } else if (certKind === 1) {
         const credential = cert.as_stake_deregistration().stake_credential();
         certificate.type = CardanoCertificateType.STAKE_DEREGISTRATION;
         if (credential.kind() === 0) {
@@ -240,7 +242,7 @@ export const txToOneKey = async (
           ).toString('hex');
           certificate.scriptHash = scriptHash;
         }
-      } else if (cert.kind() === 2) {
+      } else if (certKind === 2) {
         const delegation = cert.as_stake_delegation();
         const credential = delegation.stake_credential();
         const poolKeyHashHex = Buffer.from(
@@ -256,7 +258,7 @@ export const txToOneKey = async (
           certificate.scriptHash = scriptHash;
         }
         certificate.pool = poolKeyHashHex;
-      } else if (cert.kind() === 3) {
+      } else if (certKind === 3) {
         const params = cert.as_pool_registration().pool_params();
         certificate.type = CardanoCertificateType.STAKE_POOL_REGISTRATION;
         const owners = params.pool_owners();
@@ -342,6 +344,14 @@ export const txToOneKey = async (
           relays: onekeyRelays,
           metadata,
         };
+      } else {
+        // Skip unsupported certificate types (kind 4, 5, 6, etc.)
+        // Don't push empty certificate objects
+        console.warn(
+          `[txToOneKey] Unsupported certificate kind: ${certKind}, cert:`,
+          cert.to_hex(),
+        );
+        continue;
       }
       onekeyCertificates.push(certificate);
     }
