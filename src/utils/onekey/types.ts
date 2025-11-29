@@ -107,3 +107,11 @@ export type ICardanoCertificate = {
   stakeCredential?: string; // stake key hash
   poolKeyHash?: string; // for delegation
 };
+
+export type IConvertCborTxParams = {
+  txHex: string;
+  utxos: IAdaUTXO[];
+  addresses: string[];
+  changeAddress: IChangeAddress;
+  isSignOnly: boolean;
+};

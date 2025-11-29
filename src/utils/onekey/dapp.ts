@@ -9,13 +9,13 @@ import { ERROR } from '../../constants';
 import {
   IAdaAmount,
   IAdaUTXO,
-  IChangeAddress,
   IEncodedTxADA,
   IEncodeInput,
   IEncodeOutput,
   IStakingInfo,
   ICardanoCertificate,
   CardanoCertificateType,
+  IConvertCborTxParams,
 } from './types';
 
 const getBalance = async (balances: IAdaAmount[]) => {
@@ -98,12 +98,13 @@ const getUtxos = async (
   );
 };
 
-const convertCborTxToEncodeTx = async (
-  txHex: string,
-  utxos: IAdaUTXO[],
-  addresses: string[],
-  changeAddress: IChangeAddress,
-): Promise<IEncodedTxADA> => {
+const convertCborTxToEncodeTx = async ({
+  txHex,
+  utxos,
+  addresses,
+  changeAddress,
+  isSignOnly,
+}: IConvertCborTxParams): Promise<IEncodedTxADA> => {
   let body: CardanoWasm.TransactionBody;
   let rawTxHex: string;
 
@@ -310,7 +311,7 @@ const convertCborTxToEncodeTx = async (
       size: 0,
       rawTxHex,
     },
-    signOnly: true,
+    signOnly: isSignOnly,
     staking: stakingInfo,
   };
 
