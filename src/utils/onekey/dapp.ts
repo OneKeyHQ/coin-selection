@@ -221,6 +221,20 @@ const convertCborTxToEncodeTx = async ({
   // All valid transactions must have at least one output
   // Empty outputs means insufficient funds to cover the transaction
   if (outputsLen === 0) {
+    console.log('[convertCborTxToEncodeTx] Empty outputs detected, transaction data:', {
+      fee,
+      totalFeeInNative,
+      inputsCount: inputsLen,
+      inputs: inputs,
+      matchedUtxos: encodeInputs.map(u => ({
+        tx_hash: u.tx_hash,
+        tx_index: u.tx_index,
+        amount: u.amount,
+      })),
+      isStakingTx,
+      certificates,
+      poolId,
+    });
     throw new CoinSelectionError(ERROR.UTXO_BALANCE_INSUFFICIENT);
   }
   for (let i = 0; i < outputsLen; i++) {
