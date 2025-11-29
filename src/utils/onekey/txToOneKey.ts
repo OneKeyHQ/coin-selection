@@ -28,6 +28,14 @@ export enum CardanoCertificateType {
   STAKE_DEREGISTRATION = 1,
   STAKE_DELEGATION = 2,
   STAKE_POOL_REGISTRATION = 3,
+  VOTE_DELEGATION = 9,
+}
+
+export enum CardanoDRepType {
+  KEY_HASH = 0,
+  SCRIPT_HASH = 1,
+  ABSTAIN = 2,
+  NO_CONFIDENCE = 3,
 }
 
 export enum CardanoPoolRelayType {
@@ -344,6 +352,37 @@ export const txToOneKey = async (
           relays: onekeyRelays,
           metadata,
         };
+      } else if (certKind === 15) {
+        // VoteDelegation (CertificateKind.VoteDelegation = 15 in WASM lib)
+        const voteDelegation = cert.as_vote_delegation();
+        const credential = voteDelegation.stake_credential();
+        certificate.type = CardanoCertificateType.VOTE_DELEGATION;
+
+        if (credential.kind() === 0) {
+          certificate.path = keys.stake.path;
+        } else {
+          const scriptHash = Buffer.from(
+            credential.to_scripthash().to_bytes(),
+          ).toString('hex');
+          certificate.scriptHash = scriptHash;
+        }
+
+        // Parse DRep
+        const drep = voteDelegation.drep();
+        const drepKind = drep.kind();
+        // DRepKind: KeyHash = 0, ScriptHash = 1, AlwaysAbstain = 2, AlwaysNoConfidence = 3
+        certificate.dRep = {
+          type: drepKind as CardanoDRepType,
+        };
+
+        if (drepKind === 0) {
+          // KEY_HASH
+          certificate.dRep.keyHash = drep.to_key_hash()?.to_hex();
+        } else if (drepKind === 1) {
+          // SCRIPT_HASH
+          certificate.dRep.scriptHash = drep.to_script_hash()?.to_hex();
+        }
+        // ABSTAIN (2) and NO_CONFIDENCE (3) don't need additional fields
       } else {
         // Skip unsupported certificate types (kind 4, 5, 6, etc.)
         // Don't push empty certificate objects
