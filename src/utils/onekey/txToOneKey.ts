@@ -28,6 +28,8 @@ export enum CardanoCertificateType {
   STAKE_DEREGISTRATION = 1,
   STAKE_DELEGATION = 2,
   STAKE_POOL_REGISTRATION = 3,
+  STAKE_REGISTRATION_CONWAY = 7,
+  STAKE_DEREGISTRATION_CONWAY = 8,
   VOTE_DELEGATION = 9,
 }
 
@@ -229,8 +231,19 @@ export const txToOneKey = async (
       const certKind = cert.kind();
 
       if (certKind === 0) {
-        const credential = cert.as_stake_registration()?.stake_credential();
-        certificate.type = CardanoCertificateType.STAKE_REGISTRATION;
+        const stakeRegistration = cert.as_stake_registration();
+        const credential = stakeRegistration?.stake_credential();
+        const deposit = stakeRegistration?.coin?.();
+
+        if (deposit) {
+          // Conway era - reg_cert with deposit
+          certificate.type = CardanoCertificateType.STAKE_REGISTRATION_CONWAY;
+          certificate.deposit = deposit.to_str();
+        } else {
+          // Pre-Conway - stake_registration without deposit
+          certificate.type = CardanoCertificateType.STAKE_REGISTRATION;
+        }
+
         if (credential?.kind() === 0) {
           certificate.path = keys.stake.path;
         } else {
@@ -240,8 +253,19 @@ export const txToOneKey = async (
           certificate.scriptHash = scriptHash;
         }
       } else if (certKind === 1) {
-        const credential = cert.as_stake_deregistration().stake_credential();
-        certificate.type = CardanoCertificateType.STAKE_DEREGISTRATION;
+        const stakeDeregistration = cert.as_stake_deregistration();
+        const credential = stakeDeregistration.stake_credential();
+        const deposit = stakeDeregistration.coin?.();
+
+        if (deposit) {
+          // Conway era - unreg_cert with deposit
+          certificate.type = CardanoCertificateType.STAKE_DEREGISTRATION_CONWAY;
+          certificate.deposit = deposit.to_str();
+        } else {
+          // Pre-Conway - stake_deregistration without deposit
+          certificate.type = CardanoCertificateType.STAKE_DEREGISTRATION;
+        }
+
         if (credential.kind() === 0) {
           certificate.path = keys.stake.path;
         } else {
