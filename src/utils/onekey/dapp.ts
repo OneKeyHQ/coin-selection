@@ -108,7 +108,7 @@ const convertCborTxToEncodeTx = async ({
   let body: CardanoWasm.TransactionBody;
   let rawTxHex: string;
 
-  console.log('CARDANO LOCAL_VERSION : 1');
+  console.log('CARDANO LOCAL_VERSION : 222====>>>');
   try {
     const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(txHex, 'hex'));
     body = tx.body();
@@ -126,28 +126,7 @@ const convertCborTxToEncodeTx = async ({
   const fee = body.fee().to_str();
   const totalFeeInNative = new BigNumber(fee).shiftedBy(-1 * 6).toFixed();
 
-  // inputs txs
-  const encodeInputs: IEncodedTxADA['inputs'] = [];
-  const inputs: { tx_hash: string; tx_index: number }[] = [];
-  const inputsLen = body.inputs().len();
-  for (let i = 0; i < inputsLen; i++) {
-    const input = body.inputs().get(i);
-    const txHash = Buffer.from(
-      input.transaction_id().to_bytes() as any,
-      'utf8',
-    ).toString('hex');
-    const index = input.index();
-    inputs.push({ tx_hash: txHash, tx_index: index });
-    const utxo = utxos.find(
-      utxo => utxo.tx_hash === txHash && +utxo.tx_index === +index,
-    );
-    // Only push matched UTXOs, skip external inputs (e.g., from DeFi protocols)
-    if (utxo) {
-      encodeInputs.push(utxo as unknown as IEncodeInput);
-    }
-  }
-
-  // Parse certificates (for staking transactions)
+  // Parse certificates first (needed to determine if this is a staking transaction)
   const certificates: ICardanoCertificate[] = [];
   let poolId: string | undefined;
   const certs = body.certs();
@@ -214,13 +193,34 @@ const convertCborTxToEncodeTx = async ({
     ? { isStakingTx: true, certificates, poolId }
     : undefined;
 
+  // inputs txs
+  const encodeInputs: IEncodedTxADA['inputs'] = [];
+  const inputs: { tx_hash: string; tx_index: number }[] = [];
+  const inputsLen = body.inputs().len();
+  for (let i = 0; i < inputsLen; i++) {
+    const input = body.inputs().get(i);
+    const txHash = Buffer.from(
+      input.transaction_id().to_bytes() as any,
+      'utf8',
+    ).toString('hex');
+    const index = input.index();
+    inputs.push({ tx_hash: txHash, tx_index: index });
+    const utxo = utxos.find(
+      utxo => utxo.tx_hash === txHash && +utxo.tx_index === +index,
+    );
+    // Only push matched UTXOs, skip external inputs (e.g., from DeFi protocols)
+    if (utxo) {
+      encodeInputs.push(utxo as unknown as IEncodeInput);
+    }
+  }
+
   // outputs txs
   const outputs: IEncodeOutput[] = [];
   const outputsLen = body.outputs().len();
 
-  // All valid transactions must have at least one output
-  // Empty outputs means insufficient funds to cover the transaction
-  if (outputsLen === 0) {
+  // Staking transactions (delegation, registration, deregistration) can have empty outputs
+  // Regular transactions must have at least one output
+  if (outputsLen === 0 && !isStakingTx) {
     console.log('[convertCborTxToEncodeTx] Empty outputs detected, transaction data:', {
       fee,
       totalFeeInNative,
@@ -231,9 +231,6 @@ const convertCborTxToEncodeTx = async ({
         tx_index: u.tx_index,
         amount: u.amount,
       })),
-      isStakingTx,
-      certificates,
-      poolId,
     });
     throw new CoinSelectionError(ERROR.UTXO_BALANCE_INSUFFICIENT);
   }
@@ -286,7 +283,9 @@ const convertCborTxToEncodeTx = async ({
     });
   }
 
-  const totalSpent = BigNumber.sum(...outputs.map(o => o.amount)).toFixed();
+  const totalSpent = outputs.length > 0
+    ? BigNumber.sum(...outputs.map(o => o.amount)).toFixed()
+    : '0';
 
   const token = outputs
     .filter(o => !addresses.includes(o.address))
@@ -298,7 +297,7 @@ const convertCborTxToEncodeTx = async ({
 
   // For staking transactions, 'to' can be the pool id or empty
   const toAddress = isStakingTx
-    ? poolId || ''
+    ? fromAddress || ''
     : outputs[0]?.address || '';
 
   const encodedTx: IEncodedTxADA = {

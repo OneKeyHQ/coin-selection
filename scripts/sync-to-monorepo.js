@@ -29,7 +29,7 @@ if (!config.targetDir) {
   process.exit(1);
 }
 
-const projectRoot = __dirname;
+const projectRoot = path.join(__dirname, '..');
 const destNodeModulesPath = path.join(
   config.targetDir,
   'node_modules',
