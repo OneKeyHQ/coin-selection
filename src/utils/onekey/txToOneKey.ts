@@ -457,17 +457,23 @@ export const txToOneKey = async (
     mintBundle = [];
     for (let j = 0; j < mint.keys().len(); j++) {
       const policy = mint.keys().get(j);
-      const assets = mint.get(policy);
+      // CSL 13: Mint.get(policy) returns MintsAssets — a list, one entry per
+      // occurrence of that policy in the original CBOR — to preserve byte-
+      // level round-trip (tx hash stability). Iterate the list, then each map.
+      const mintsAssets = mint.get(policy);
       const tokens = [];
-      for (let k = 0; k < assets.keys().len(); k++) {
-        const assetName = assets.keys().get(k);
-        const amount = assets.get(assetName);
-        tokens.push({
-          assetNameBytes: Buffer.from(assetName.name()).toString('hex'),
-          mintAmount: amount.is_positive()
-            ? amount.as_positive().to_str()
-            : '-' + amount.as_negative().to_str(),
-        });
+      for (let mai = 0; mai < mintsAssets.len(); mai++) {
+        const assets = mintsAssets.get(mai);
+        for (let k = 0; k < assets.keys().len(); k++) {
+          const assetName = assets.keys().get(k);
+          const amount = assets.get(assetName);
+          tokens.push({
+            assetNameBytes: Buffer.from(assetName.name()).toString('hex'),
+            mintAmount: amount.is_positive()
+              ? amount.as_positive().to_str()
+              : '-' + amount.as_negative().to_str(),
+          });
+        }
       }
       // sort canonical
       sortCanonicallyInPlace(tokens, item => item.assetNameBytes);
@@ -543,7 +549,7 @@ export const txToOneKey = async (
     for (let i = 0; i < ri.len(); i++) {
       referenceInputs.push({
         prev_hash: ri.get(i).transaction_id().to_hex(),
-        prev_index: parseInt(ri.get(i).index().to_str()),
+        prev_index: parseInt(String(ri.get(i).index())),
       });
     }
     signingMode = CardanoTxSigningMode.PLUTUS_TRANSACTION;

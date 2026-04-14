@@ -108,7 +108,6 @@ const convertCborTxToEncodeTx = async ({
   let body: CardanoWasm.TransactionBody;
   let rawTxHex: string;
 
-  // console.log('CARDANO LOCAL_VERSION : 333====>>>');
   try {
     const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(txHex, 'hex'));
     body = tx.body();
