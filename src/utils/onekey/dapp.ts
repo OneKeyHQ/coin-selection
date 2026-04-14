@@ -4,13 +4,18 @@ import * as CardanoMessage from '@emurgo/cardano-message-signing-asmjs/cardano_m
 import BigNumber from 'bignumber.js';
 import { getUtxos as getRawUtxos, requestAccountKey } from './signTx';
 import { DataSignError } from './error';
+import { CoinSelectionError } from '../errors';
+import { ERROR } from '../../constants';
 import {
   IAdaAmount,
   IAdaUTXO,
-  IChangeAddress,
   IEncodedTxADA,
   IEncodeInput,
   IEncodeOutput,
+  IStakingInfo,
+  ICardanoCertificate,
+  CardanoCertificateType,
+  IConvertCborTxParams,
 } from './types';
 
 const getBalance = async (balances: IAdaAmount[]) => {
@@ -93,18 +98,100 @@ const getUtxos = async (
   );
 };
 
-const convertCborTxToEncodeTx = async (
-  txHex: string,
-  utxos: IAdaUTXO[],
-  addresses: string[],
-  changeAddress: IChangeAddress,
-): Promise<IEncodedTxADA> => {
-  const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(txHex, 'hex'));
-  const body = tx.body();
+const convertCborTxToEncodeTx = async ({
+  txHex,
+  utxos,
+  addresses,
+  changeAddress,
+  isSignOnly,
+}: IConvertCborTxParams): Promise<IEncodedTxADA> => {
+  let body: CardanoWasm.TransactionBody;
+  let rawTxHex: string;
+
+  // console.log('CARDANO LOCAL_VERSION : 333====>>>');
+  try {
+    const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(txHex, 'hex'));
+    body = tx.body();
+    rawTxHex = txHex;
+  } catch {
+    // Input is TransactionBody only (e.g., from staking providers like stakefish)
+    // Build a complete Transaction with empty witness set
+    body = CardanoWasm.TransactionBody.from_bytes(Buffer.from(txHex, 'hex'));
+    const emptyWitnessSet = CardanoWasm.TransactionWitnessSet.new();
+    const tx = CardanoWasm.Transaction.new(body, emptyWitnessSet);
+    rawTxHex = Buffer.from(tx.to_bytes() as any, 'hex').toString('hex');
+  }
 
   // Fee
   const fee = body.fee().to_str();
   const totalFeeInNative = new BigNumber(fee).shiftedBy(-1 * 6).toFixed();
+
+  // Parse certificates first (needed to determine if this is a staking transaction)
+  const certificates: ICardanoCertificate[] = [];
+  let poolId: string | undefined;
+  const certs = body.certs();
+  if (certs) {
+    const certsLen = certs.len();
+    for (let i = 0; i < certsLen; i++) {
+      const cert = certs.get(i);
+      const certKind = cert.kind();
+
+      // Stake Registration (kind = 0)
+      if (certKind === CardanoWasm.CertificateKind.StakeRegistration) {
+        const stakeReg = cert.as_stake_registration();
+        if (stakeReg) {
+          const stakeCredential = stakeReg.stake_credential();
+          const keyHash = stakeCredential.to_keyhash();
+          certificates.push({
+            type: CardanoCertificateType.STAKE_REGISTRATION,
+            stakeCredential: keyHash
+              ? Buffer.from(keyHash.to_bytes() as any, 'hex').toString('hex')
+              : undefined,
+          });
+        }
+      }
+
+      // Stake Deregistration (kind = 1)
+      if (certKind === CardanoWasm.CertificateKind.StakeDeregistration) {
+        const stakeDeReg = cert.as_stake_deregistration();
+        if (stakeDeReg) {
+          const stakeCredential = stakeDeReg.stake_credential();
+          const keyHash = stakeCredential.to_keyhash();
+          certificates.push({
+            type: CardanoCertificateType.STAKE_DEREGISTRATION,
+            stakeCredential: keyHash
+              ? Buffer.from(keyHash.to_bytes() as any, 'hex').toString('hex')
+              : undefined,
+          });
+        }
+      }
+
+      // Stake Delegation (kind = 2)
+      if (certKind === CardanoWasm.CertificateKind.StakeDelegation) {
+        const stakeDelegation = cert.as_stake_delegation();
+        if (stakeDelegation) {
+          const stakeCredential = stakeDelegation.stake_credential();
+          const keyHash = stakeCredential.to_keyhash();
+          const poolKeyHash = stakeDelegation.pool_keyhash();
+          poolId = Buffer.from(poolKeyHash.to_bytes() as any, 'hex').toString(
+            'hex',
+          );
+          certificates.push({
+            type: CardanoCertificateType.STAKE_DELEGATION,
+            stakeCredential: keyHash
+              ? Buffer.from(keyHash.to_bytes() as any, 'hex').toString('hex')
+              : undefined,
+            poolKeyHash: poolId,
+          });
+        }
+      }
+    }
+  }
+
+  const isStakingTx = certificates.length > 0;
+  const stakingInfo: IStakingInfo | undefined = isStakingTx
+    ? { isStakingTx: true, certificates, poolId }
+    : undefined;
 
   // inputs txs
   const encodeInputs: IEncodedTxADA['inputs'] = [];
@@ -121,12 +208,32 @@ const convertCborTxToEncodeTx = async (
     const utxo = utxos.find(
       utxo => utxo.tx_hash === txHash && +utxo.tx_index === +index,
     );
-    encodeInputs.push(utxo as unknown as IEncodeInput);
+    // Only push matched UTXOs, skip external inputs (e.g., from DeFi protocols)
+    if (utxo) {
+      encodeInputs.push(utxo as unknown as IEncodeInput);
+    }
   }
 
   // outputs txs
   const outputs: IEncodeOutput[] = [];
   const outputsLen = body.outputs().len();
+
+  // Staking transactions (delegation, registration, deregistration) can have empty outputs
+  // Regular transactions must have at least one output
+  if (outputsLen === 0 && !isStakingTx) {
+    console.log('[convertCborTxToEncodeTx] Empty outputs detected, transaction data:', {
+      fee,
+      totalFeeInNative,
+      inputsCount: inputsLen,
+      inputs: inputs,
+      matchedUtxos: encodeInputs.map(u => ({
+        tx_hash: u.tx_hash,
+        tx_index: u.tx_index,
+        amount: u.amount,
+      })),
+    });
+    throw new CoinSelectionError(ERROR.UTXO_BALANCE_INSUFFICIENT);
+  }
   for (let i = 0; i < outputsLen; i++) {
     const output = body.outputs().get(i);
     const address = output.address().to_bech32();
@@ -176,13 +283,24 @@ const convertCborTxToEncodeTx = async (
     });
   }
 
-  const totalSpent = BigNumber.sum(...outputs.map(o => o.amount)).toFixed();
+  const totalSpent = outputs.length > 0
+    ? BigNumber.sum(...outputs.map(o => o.amount)).toFixed()
+    : '0';
 
   const token = outputs
     .filter(o => !addresses.includes(o.address))
     .find(o => o.assets.length > 0)?.assets?.[0].unit;
 
-  const encodedTx = {
+  // Determine 'from' address: prefer matched input, fallback to changeAddress
+  const fromAddress =
+    encodeInputs[0]?.address || changeAddress.address || '';
+
+  // For staking transactions, 'to' can be the pool id or empty
+  const toAddress = isStakingTx
+    ? fromAddress || ''
+    : outputs[0]?.address || '';
+
+  const encodedTx: IEncodedTxADA = {
     inputs: encodeInputs.map(input => ({
       ...input,
       txHash: input.tx_hash,
@@ -193,8 +311,8 @@ const convertCborTxToEncodeTx = async (
     totalSpent,
     totalFeeInNative,
     transferInfo: {
-      from: encodeInputs[0].address,
-      to: outputs[0].address,
+      from: fromAddress,
+      to: toAddress,
       amount: totalSpent,
       token,
     },
@@ -204,9 +322,10 @@ const convertCborTxToEncodeTx = async (
         .transaction_hash()
         .to_hex(),
       size: 0,
-      rawTxHex: txHex,
+      rawTxHex,
     },
-    signOnly: true,
+    signOnly: isSignOnly,
+    staking: stakingInfo,
   };
 
   console.log('Cardano DApp EncodedTx: ', encodedTx);

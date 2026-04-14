@@ -50,6 +50,7 @@ type ITxInfo = {
   body: string;
   hash: string;
   size: number;
+  rawTxHex?: string;
 };
 
 export type IEncodedTxADA = {
@@ -61,6 +62,7 @@ export type IEncodedTxADA = {
   transferInfo: ITransferInfo;
   tx: ITxInfo;
   signOnly?: boolean;
+  staking?: IStakingInfo;
 };
 
 enum CardanoAddressType {
@@ -84,4 +86,32 @@ export type IChangeAddress = {
     addressType: CardanoAddressType;
     stakingPath: string;
   };
+};
+
+// Staking certificate types
+export enum CardanoCertificateType {
+  STAKE_REGISTRATION = 0,
+  STAKE_DEREGISTRATION = 1,
+  STAKE_DELEGATION = 2,
+  STAKE_POOL_REGISTRATION = 3,
+}
+
+export type IStakingInfo = {
+  isStakingTx: boolean;
+  certificates: ICardanoCertificate[];
+  poolId?: string; // For delegation
+};
+
+export type ICardanoCertificate = {
+  type: CardanoCertificateType;
+  stakeCredential?: string; // stake key hash
+  poolKeyHash?: string; // for delegation
+};
+
+export type IConvertCborTxParams = {
+  txHex: string;
+  utxos: IAdaUTXO[];
+  addresses: string[];
+  changeAddress: IChangeAddress;
+  isSignOnly: boolean;
 };

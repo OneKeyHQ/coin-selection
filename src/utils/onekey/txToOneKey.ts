@@ -28,6 +28,16 @@ export enum CardanoCertificateType {
   STAKE_DEREGISTRATION = 1,
   STAKE_DELEGATION = 2,
   STAKE_POOL_REGISTRATION = 3,
+  STAKE_REGISTRATION_CONWAY = 7,
+  STAKE_DEREGISTRATION_CONWAY = 8,
+  VOTE_DELEGATION = 9,
+}
+
+export enum CardanoDRepType {
+  KEY_HASH = 0,
+  SCRIPT_HASH = 1,
+  ABSTAIN = 2,
+  NO_CONFIDENCE = 3,
 }
 
 export enum CardanoPoolRelayType {
@@ -218,9 +228,22 @@ export const txToOneKey = async (
     for (let i = 0; i < certificates.len(); i++) {
       const cert = certificates.get(i);
       const certificate: any = {};
-      if (cert.kind() === 0) {
-        const credential = cert.as_stake_registration()?.stake_credential();
-        certificate.type = CardanoCertificateType.STAKE_REGISTRATION;
+      const certKind = cert.kind();
+
+      if (certKind === 0) {
+        const stakeRegistration = cert.as_stake_registration();
+        const credential = stakeRegistration?.stake_credential();
+        const deposit = stakeRegistration?.coin?.();
+
+        if (deposit) {
+          // Conway era - reg_cert with deposit
+          certificate.type = CardanoCertificateType.STAKE_REGISTRATION_CONWAY;
+          certificate.deposit = deposit.to_str();
+        } else {
+          // Pre-Conway - stake_registration without deposit
+          certificate.type = CardanoCertificateType.STAKE_REGISTRATION;
+        }
+
         if (credential?.kind() === 0) {
           certificate.path = keys.stake.path;
         } else {
@@ -229,9 +252,20 @@ export const txToOneKey = async (
           ).toString('hex');
           certificate.scriptHash = scriptHash;
         }
-      } else if (cert.kind() === 1) {
-        const credential = cert.as_stake_deregistration().stake_credential();
-        certificate.type = CardanoCertificateType.STAKE_DEREGISTRATION;
+      } else if (certKind === 1) {
+        const stakeDeregistration = cert.as_stake_deregistration();
+        const credential = stakeDeregistration.stake_credential();
+        const deposit = stakeDeregistration.coin?.();
+
+        if (deposit) {
+          // Conway era - unreg_cert with deposit
+          certificate.type = CardanoCertificateType.STAKE_DEREGISTRATION_CONWAY;
+          certificate.deposit = deposit.to_str();
+        } else {
+          // Pre-Conway - stake_deregistration without deposit
+          certificate.type = CardanoCertificateType.STAKE_DEREGISTRATION;
+        }
+
         if (credential.kind() === 0) {
           certificate.path = keys.stake.path;
         } else {
@@ -240,7 +274,7 @@ export const txToOneKey = async (
           ).toString('hex');
           certificate.scriptHash = scriptHash;
         }
-      } else if (cert.kind() === 2) {
+      } else if (certKind === 2) {
         const delegation = cert.as_stake_delegation();
         const credential = delegation.stake_credential();
         const poolKeyHashHex = Buffer.from(
@@ -256,7 +290,7 @@ export const txToOneKey = async (
           certificate.scriptHash = scriptHash;
         }
         certificate.pool = poolKeyHashHex;
-      } else if (cert.kind() === 3) {
+      } else if (certKind === 3) {
         const params = cert.as_pool_registration().pool_params();
         certificate.type = CardanoCertificateType.STAKE_POOL_REGISTRATION;
         const owners = params.pool_owners();
@@ -342,6 +376,45 @@ export const txToOneKey = async (
           relays: onekeyRelays,
           metadata,
         };
+      } else if (certKind === 15) {
+        // VoteDelegation (CertificateKind.VoteDelegation = 15 in WASM lib)
+        const voteDelegation = cert.as_vote_delegation();
+        const credential = voteDelegation.stake_credential();
+        certificate.type = CardanoCertificateType.VOTE_DELEGATION;
+
+        if (credential.kind() === 0) {
+          certificate.path = keys.stake.path;
+        } else {
+          const scriptHash = Buffer.from(
+            credential.to_scripthash().to_bytes(),
+          ).toString('hex');
+          certificate.scriptHash = scriptHash;
+        }
+
+        // Parse DRep
+        const drep = voteDelegation.drep();
+        const drepKind = drep.kind();
+        // DRepKind: KeyHash = 0, ScriptHash = 1, AlwaysAbstain = 2, AlwaysNoConfidence = 3
+        certificate.dRep = {
+          type: drepKind as CardanoDRepType,
+        };
+
+        if (drepKind === 0) {
+          // KEY_HASH
+          certificate.dRep.keyHash = drep.to_key_hash()?.to_hex();
+        } else if (drepKind === 1) {
+          // SCRIPT_HASH
+          certificate.dRep.scriptHash = drep.to_script_hash()?.to_hex();
+        }
+        // ABSTAIN (2) and NO_CONFIDENCE (3) don't need additional fields
+      } else {
+        // Skip unsupported certificate types (kind 4, 5, 6, etc.)
+        // Don't push empty certificate objects
+        console.warn(
+          `[txToOneKey] Unsupported certificate kind: ${certKind}, cert:`,
+          cert.to_hex(),
+        );
+        continue;
       }
       onekeyCertificates.push(certificate);
     }
