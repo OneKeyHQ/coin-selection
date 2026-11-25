@@ -25,12 +25,8 @@ export const signTransaction = async (
   if (!serializedUtxos || serializedUtxos === null) {
     throw new Error('no utxos');
   }
-  const transactionWitnessSet = CardanoWasm.TransactionWitnessSet.new();
-  const rawTx = CardanoWasm.Transaction.new(
-    CardanoWasm.TransactionBody.from_hex(txBodyHex),
-    CardanoWasm.TransactionWitnessSet.from_bytes(
-      transactionWitnessSet.to_bytes(),
-    ),
+  const rawTx = CardanoWasm.FixedTransaction.new_from_body_bytes(
+    Buffer.from(txBodyHex, 'hex'),
   );
   const keyHashes = await getKeyHashes(
     rawTx,
@@ -53,20 +49,16 @@ export const signTransaction = async (
     };
   }
 
-  const transaction = CardanoWasm.Transaction.new(
-    rawTx.body(),
-    witnessSet,
-    rawTx.auxiliary_data(),
+  const transaction = CardanoWasm.FixedTransaction.new(
+    rawTx.raw_body(),
+    witnessSet.to_bytes(),
+    rawTx.is_valid(),
   );
 
   const signedTx = Buffer.from(transaction.to_bytes() as any, 'hex').toString(
     'hex',
   );
-  const hash = CardanoWasm.FixedTransaction.new_from_body_bytes(
-    transaction.body().to_bytes(),
-  )
-    .transaction_hash()
-    .to_hex();
+  const hash = transaction.transaction_hash().to_hex();
   return {
     signedTx,
     txid: hash,
@@ -97,13 +89,11 @@ export const signTx = async (
     'hex',
   ).toString('hex');
 
-  const rawTx = CardanoWasm.Transaction.from_bytes(Buffer.from(tx, 'hex'));
+  const rawTx = CardanoWasm.FixedTransaction.from_hex(tx);
 
   const txWitnessSet = CardanoWasm.TransactionWitnessSet.new();
   const vkeyWitnesses = CardanoWasm.Vkeywitnesses.new();
-  const txHash = CardanoWasm.FixedTransaction.new_from_body_bytes(
-    rawTx.body().to_bytes(),
-  ).transaction_hash();
+  const txHash = rawTx.transaction_hash();
   keyHashes.forEach(keyHash => {
     let signingKey;
     if (keyHash === paymentKeyHash) signingKey = paymentKey;
@@ -124,7 +114,7 @@ export const signTx = async (
 };
 
 const getKeyHashes = async (
-  tx: CardanoWasm.Transaction,
+  tx: CardanoWasm.FixedTransaction,
   utxos: CardanoWasm.TransactionUnspentOutput[],
   account: { paymentAddr: string },
 ): Promise<{ key: string[]; keyKind: string[] }> => {

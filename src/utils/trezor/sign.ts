@@ -4,6 +4,7 @@ import {
   CardanoTxWitnessType,
 } from '../../types/trezor';
 import { getProtocolMagic } from '../common';
+import { TxSignError } from '../onekey/error';
 
 export const signTransaction = (
   txBodyHex: string,
@@ -11,8 +12,8 @@ export const signTransaction = (
   signedWitnesses: CardanoSignedTxWitness[],
   options?: { testnet?: boolean; signOnly?: boolean },
 ): Promise<string> => {
-  const txBody = CardanoWasm.TransactionBody.from_bytes(
-    Uint8Array.from(Buffer.from(txBodyHex, 'hex')),
+  const tx = CardanoWasm.FixedTransaction.new_from_body_bytes(
+    Buffer.from(txBodyHex, 'hex'),
   );
   const witnesses = CardanoWasm.TransactionWitnessSet.new();
   const vkeyWitnesses = CardanoWasm.Vkeywitnesses.new();
@@ -27,6 +28,11 @@ export const signTransaction = (
     );
 
     if (w.type === CardanoTxWitnessType.SHELLEY_WITNESS) {
+      if (
+        !vKey.public_key().verify(tx.transaction_hash().to_bytes(), signature)
+      ) {
+        throw TxSignError.ProofGeneration;
+      }
       // Shelley witness
       const vKeyWitness = CardanoWasm.Vkeywitness.new(vKey, signature);
       vkeyWitnesses.add(vKeyWitness);
@@ -65,7 +71,11 @@ export const signTransaction = (
     );
   }
 
-  const transaction = CardanoWasm.Transaction.new(txBody, witnesses);
+  const transaction = CardanoWasm.FixedTransaction.new(
+    tx.raw_body(),
+    witnesses.to_bytes(),
+    tx.is_valid(),
+  );
   const serializedTx = Buffer.from(transaction.to_bytes()).toString('hex');
   return Promise.resolve(serializedTx);
 };

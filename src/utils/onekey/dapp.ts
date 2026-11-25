@@ -105,21 +105,20 @@ const convertCborTxToEncodeTx = async ({
   changeAddress,
   isSignOnly,
 }: IConvertCborTxParams): Promise<IEncodedTxADA> => {
-  let body: CardanoWasm.TransactionBody;
+  let tx: CardanoWasm.FixedTransaction;
   let rawTxHex: string;
 
   try {
-    const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(txHex, 'hex'));
-    body = tx.body();
+    tx = CardanoWasm.FixedTransaction.from_hex(txHex);
     rawTxHex = txHex;
   } catch {
-    // Input is TransactionBody only (e.g., from staking providers like stakefish)
-    // Build a complete Transaction with empty witness set
-    body = CardanoWasm.TransactionBody.from_bytes(Buffer.from(txHex, 'hex'));
-    const emptyWitnessSet = CardanoWasm.TransactionWitnessSet.new();
-    const tx = CardanoWasm.Transaction.new(body, emptyWitnessSet);
-    rawTxHex = Buffer.from(tx.to_bytes() as any, 'hex').toString('hex');
+    // Staking providers may supply only a transaction body.
+    tx = CardanoWasm.FixedTransaction.new_from_body_bytes(
+      Buffer.from(txHex, 'hex'),
+    );
+    rawTxHex = tx.to_hex();
   }
+  const body = tx.body();
 
   // Fee
   const fee = body.fee().to_str();
@@ -316,10 +315,8 @@ const convertCborTxToEncodeTx = async ({
       token,
     },
     tx: {
-      body: body.to_hex(),
-      hash: CardanoWasm.FixedTransaction.new_from_body_bytes(body.to_bytes())
-        .transaction_hash()
-        .to_hex(),
+      body: Buffer.from(tx.raw_body()).toString('hex'),
+      hash: tx.transaction_hash().to_hex(),
       size: 0,
       rawTxHex,
     },
