@@ -1,6 +1,7 @@
 // @ts-nocheck
 import * as CardanoWasm from '@emurgo/cardano-serialization-lib-asmjs';
 import type { IChangeAddress } from './types';
+import { hasSetTagWithBody } from './hasSetTag';
 
 export enum CardanoAddressType {
   BASE = 0,
@@ -186,9 +187,11 @@ const outputsToOneKey = (
       tokenBundle,
       datumHash,
       // https://github.com/input-output-hk/nami/commit/a5f5a9357da81307bff9bc77ef2476f1746c134a#diff-1c7110974e24c349d96acac1989fe76c94b0031ab0f5a114e10823e5d74549deR421-R423
-      format: Buffer.from(output.to_bytes()).toString('hex').startsWith('a')
-        ? 1
-        : 0,
+      format:
+        output.serialization_format() ??
+        (Buffer.from(output.to_bytes()).toString('hex').startsWith('a')
+          ? 1
+          : 0),
       inlineDatum,
       referenceScript,
       ...destination,
@@ -214,7 +217,7 @@ export const txToOneKey = async (
   changeAddress: IChangeAddress,
 ) => {
   const keys = generateKeys(initKeys, xpub);
-  const tx = CardanoWasm.Transaction.from_bytes(Buffer.from(rawTx, 'hex'));
+  const tx = CardanoWasm.FixedTransaction.from_hex(rawTx);
 
   let signingMode = CardanoTxSigningMode.ORDINARY_TRANSACTION;
 
@@ -573,12 +576,9 @@ export const txToOneKey = async (
 
   let tagCborSets = false;
   try {
-    const tagCBOR = CardanoWasm.has_transaction_set_tag(
-      tx.to_bytes(),
-    ).valueOf();
-    tagCborSets =
-      tagCBOR === CardanoWasm.TransactionSetsState.AllSetsHaveTag.valueOf() ||
-      tagCBOR === CardanoWasm.TransactionSetsState.MixedSets.valueOf();
+    tagCborSets = await hasSetTagWithBody(
+      Buffer.from(tx.raw_body()).toString('hex'),
+    );
   } catch (error) {
     // ignore
   }

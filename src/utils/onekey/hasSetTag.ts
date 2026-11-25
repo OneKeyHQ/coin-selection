@@ -1,11 +1,9 @@
 import * as CardanoWasm from '@emurgo/cardano-serialization-lib-asmjs';
 
 export const hasSetTagWithBody = (txBodyHex: string) => {
-  const txBody = CardanoWasm.TransactionBody.from_bytes(
-    Uint8Array.from(Buffer.from(txBodyHex, 'hex')),
+  const tx = CardanoWasm.FixedTransaction.new_from_body_bytes(
+    Buffer.from(txBodyHex, 'hex'),
   );
-  const witnesses = CardanoWasm.TransactionWitnessSet.new();
-  const tx = CardanoWasm.Transaction.new(txBody, witnesses);
 
   let tagCborSets = false;
   try {
