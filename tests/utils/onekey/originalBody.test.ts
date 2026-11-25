@@ -179,6 +179,31 @@ describe('original transaction body', () => {
     },
   );
 
+  test.each([
+    undefined,
+    '0',
+    '123',
+    '4294967296',
+    '9007199254740993',
+    '18446744073709551615',
+  ])('preserves validityIntervalStart=%s', async validityIntervalStart => {
+    const data = fixture(false, true);
+    const body =
+      validityIntervalStart === undefined
+        ? data.body
+        : `a4${data.body.slice(2)}08${Cardano.BigNum.from_str(
+            validityIntervalStart,
+          ).to_hex()}`;
+    const params = await txToOneKey(
+      `84${body}a0f5f6`,
+      1,
+      data.keys,
+      data.account.to_public().to_hex(),
+      data.changeAddress,
+    );
+    expect(params.validityIntervalStart).toBe(validityIntervalStart);
+  });
+
   test('reads set tags from the body instead of existing witnesses', async () => {
     const data = fixture(false, true);
     const witnesses = Cardano.TransactionWitnessSet.new();

@@ -449,9 +449,8 @@ export const txToOneKey = async (
         ),
       }
     : null;
-  const validityIntervalStart = tx.body().validity_start_interval()
-    ? tx.body().validity_start_interval().to_str()
-    : null;
+  const validityIntervalStart =
+    tx.body().validity_start_interval_bignum()?.to_str() ?? null;
 
   const mint = tx.body().mint();
   let additionalWitnessRequests = null;
