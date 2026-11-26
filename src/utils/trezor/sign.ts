@@ -5,8 +5,10 @@ import {
 } from '../../types/trezor';
 import { getProtocolMagic } from '../common';
 import { TxSignError } from '../onekey/error';
+import { hasSetTagWithBody } from '../onekey/hasSetTag';
+import { createKeyWitnessSet } from '../witnesses';
 
-export const signTransaction = (
+export const signTransaction = async (
   txBodyHex: string,
   // txMetadata: CardanoWasm.AuxiliaryData,
   signedWitnesses: CardanoSignedTxWitness[],
@@ -15,7 +17,6 @@ export const signTransaction = (
   const tx = CardanoWasm.FixedTransaction.new_from_body_bytes(
     Buffer.from(txBodyHex, 'hex'),
   );
-  const witnesses = CardanoWasm.TransactionWitnessSet.new();
   const vkeyWitnesses = CardanoWasm.Vkeywitnesses.new();
   const bootstrapWitnesses = CardanoWasm.BootstrapWitnesses.new();
 
@@ -58,12 +59,11 @@ export const signTransaction = (
     }
   });
 
-  if (bootstrapWitnesses.len() > 0) {
-    witnesses.set_bootstraps(bootstrapWitnesses);
-  }
-  if (vkeyWitnesses.len() > 0) {
-    witnesses.set_vkeys(vkeyWitnesses);
-  }
+  const witnesses = createKeyWitnessSet(
+    await hasSetTagWithBody(txBodyHex),
+    vkeyWitnesses,
+    bootstrapWitnesses,
+  );
 
   if (options?.signOnly) {
     return Promise.resolve(

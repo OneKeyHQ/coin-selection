@@ -90,6 +90,9 @@ describe('original transaction body', () => {
     async ({ tagged, map }) => {
       const data = fixture(tagged, map);
       const hash = data.fixed.transaction_hash();
+      const expectedSetTags = tagged
+        ? Cardano.TransactionSetsState.AllSetsHaveTag
+        : Cardano.TransactionSetsState.AllSetsHaveNoTag;
       for (const txHex of [data.txHex, data.body]) {
         const encoded = await dAppUtils.convertCborTxToEncodeTx({
           txHex,
@@ -129,6 +132,15 @@ describe('original transaction body', () => {
         signed.signedTx,
       ).vkeys();
       if (!vkeys) throw new Error('Missing vkey witnesses');
+      expect(
+        Cardano.has_transaction_set_tag(
+          Cardano.FixedTransaction.new(
+            data.fixed.raw_body(),
+            Buffer.from(signed.signedTx, 'hex'),
+            true,
+          ).to_bytes(),
+        ),
+      ).toBe(expectedSetTags);
       expect(vkeys.len()).toBe(1);
       const witness = vkeys.get(0);
       expect(
@@ -163,6 +175,9 @@ describe('original transaction body', () => {
         ).toString('hex'),
       ).toBe(data.body);
       expect(full.txid).toBe(hash.to_hex());
+      expect(
+        Cardano.has_transaction_set_tag(Buffer.from(full.signedTx, 'hex')),
+      ).toBe(expectedSetTags);
 
       const hardwareTx = await hardwareSign(data.body, [
         {
@@ -176,6 +191,22 @@ describe('original transaction body', () => {
           Cardano.FixedTransaction.from_hex(hardwareTx).raw_body(),
         ).toString('hex'),
       ).toBe(data.body);
+      expect(
+        Cardano.has_transaction_set_tag(Buffer.from(hardwareTx, 'hex')),
+      ).toBe(expectedSetTags);
+      expect(
+        await hardwareSign(
+          data.body,
+          [
+            {
+              type: 1,
+              pubKey: witness.vkey().public_key().to_hex(),
+              signature: witness.signature().to_hex(),
+            },
+          ],
+          { signOnly: true },
+        ),
+      ).toBe(signed.signedTx);
     },
   );
 
