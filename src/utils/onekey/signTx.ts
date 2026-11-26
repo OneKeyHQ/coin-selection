@@ -1,5 +1,7 @@
 import * as CardanoWasm from '@emurgo/cardano-serialization-lib-asmjs';
+import { createKeyWitnessSet } from '../witnesses';
 import { TxSignError } from './error';
+import { hasSetTagWithBody } from './hasSetTag';
 import { IAdaUTXO, IAdaAmount } from './types';
 
 type SignKeys = {
@@ -91,7 +93,6 @@ export const signTx = async (
 
   const rawTx = CardanoWasm.FixedTransaction.from_hex(tx);
 
-  const txWitnessSet = CardanoWasm.TransactionWitnessSet.new();
   const vkeyWitnesses = CardanoWasm.Vkeywitnesses.new();
   const txHash = rawTx.transaction_hash();
   keyHashes.forEach(keyHash => {
@@ -109,8 +110,10 @@ export const signTx = async (
   paymentKey.free();
   // paymentKey = null;
 
-  txWitnessSet.set_vkeys(vkeyWitnesses);
-  return txWitnessSet;
+  return createKeyWitnessSet(
+    await hasSetTagWithBody(Buffer.from(rawTx.raw_body()).toString('hex')),
+    vkeyWitnesses,
+  );
 };
 
 const getKeyHashes = async (
